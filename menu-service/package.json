@@ -1,0 +1,23 @@
+{
+  "name": "menu-service",
+  "version": "1.0.0",
+  "description": "Menu service for restaurant-system",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "restaurant",
+    "menu",
+    "microservice",
+    "api"
+  ],
+  "author": "Krywion",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongoose": "^8.9.5"
+  }
+}
