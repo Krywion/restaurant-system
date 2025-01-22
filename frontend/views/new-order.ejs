@@ -1,0 +1,110 @@
+<form id="orderForm" class="needs-validation" novalidate>
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <label for="tableNumber" class="form-label">Table Number</label>
+            <input type="number" class="form-control" id="tableNumber" required min="1">
+        </div>
+    </div>
+
+    <div id="menuItems" class="mb-4">
+        <h3>Menu</h3>
+        <div class="row">
+            <% menuItems.forEach(function(item) { %>
+                <div class="col-md-6 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title"><%= item.name %></h5>
+                            <p class="card-text">
+                                <%= item.description %><br>
+                                <strong><%= item.price.toFixed(2) %> zł</strong>
+                            </p>
+                            <div class="input-group">
+                                <input type="number"
+                                       class="form-control item-quantity"
+                                       data-id="<%= item._id %>"
+                                       data-price="<%= item.price %>"
+                                       min="0"
+                                       value="0">
+                                <span class="input-group-text">szt.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label for="notes" class="form-label">Notes</label>
+        <textarea class="form-control" id="notes" rows="3"></textarea>
+    </div>
+
+    <div class="alert alert-info">
+        Total Amount: <strong id="totalAmount">0.00 zł</strong>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Create order</button>
+</form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('orderForm');
+        const inputs = document.querySelectorAll('.item-quantity');
+
+        function calculateTotal() {
+            let total = 0;
+            inputs.forEach(input => {
+                const quantity = parseInt(input.value) || 0;
+                const price = parseFloat(input.dataset.price);
+                total += quantity * price;
+            });
+            document.getElementById('totalAmount').textContent = total.toFixed(2) + ' zł';
+        }
+
+        inputs.forEach(input => {
+            input.addEventListener('change', calculateTotal);
+        });
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const items = [];
+            inputs.forEach(input => {
+                const quantity = parseInt(input.value);
+                if (quantity > 0) {
+                    items.push({
+                        menuItemId: input.dataset.id,
+                        quantity: quantity,
+                        price: parseFloat(input.dataset.price)
+                    });
+                }
+            });
+
+            const orderData = {
+                tableNumber: parseInt(document.getElementById('tableNumber').value),
+                items: items,
+                notes: document.getElementById('notes').value
+            };
+
+            try {
+                const response = await fetch('http://localhost:3002/api/orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(orderData)
+                });
+
+                if (response.ok) {
+                    alert('The order has been placed successfully');
+                    window.location.href = '/orders';
+                } else {
+                    alert('An error occurred while placing the order');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while placing the order');
+            }
+        });
+    });
+</script>
