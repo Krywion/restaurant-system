@@ -1,0 +1,36 @@
+<!-- views/order-history.ejs -->
+<div class="row">
+    <% orders.forEach(function(order) { %>
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Table #<%= order.tableNumber %></h5>
+                    <span class="badge bg-secondary"><%= order.status %></span>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <% order.items.forEach(function(item) { %>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><%= item.quantity %>x <%= item.menuItemId %></span>
+                                <span><%= (item.price * item.quantity).toFixed(2) %> zł</span>
+                            </li>
+                        <% }); %>
+                    </ul>
+                    <% if (order.notes) { %>
+                        <div class="mt-3">
+                            <strong>Notes:</strong>
+                            <p class="mb-0"><%= order.notes %></p>
+                        </div>
+                    <% } %>
+                    <div class="mt-3">
+                        <strong>Total:</strong> <%= order.totalAmount.toFixed(2) %> zł
+                    </div>
+                </div>
+                <div class="card-footer text-muted">
+                    <div>Created: <%= new Date(order.createdAt).toLocaleString() %></div>
+                    <div>Completed: <%= new Date(order.updatedAt).toLocaleString() %></div>
+                </div>
+            </div>
+        </div>
+    <% }); %>
+</div>

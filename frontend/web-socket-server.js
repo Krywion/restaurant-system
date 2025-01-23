@@ -63,7 +63,6 @@ const runConsumer = async () => {
                         return;
                 }
 
-                // Broadcast the message
                 broadcastMessage({
                     type: eventType,
                     order: order

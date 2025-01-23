@@ -1,14 +1,23 @@
-console.log('Orders WebSocket Script loaded!');
-
 class OrdersWebSocket {
     constructor() {
-        console.log('OrdersWebSocket class initialized');
         this.connect();
-        this.setupDebugListeners();
+        this.menuItems = new Map();
+        this.loadMenuItems();
+    }
+
+    async loadMenuItems() {
+        try {
+            const response = await fetch('http://localhost:3001/api/menu');
+            const items = await response.json();
+            items.forEach(item => {
+                this.menuItems.set(item._id, item.name);
+            });
+        } catch (error) {
+            console.error('Error loading menu items:', error);
+        }
     }
 
     connect() {
-        console.log('Attempting to connect to WebSocket...');
         try {
             this.ws = new WebSocket('ws://localhost:8080');
             this.setupWebSocketListeners();
@@ -19,131 +28,108 @@ class OrdersWebSocket {
     }
 
     setupWebSocketListeners() {
-        this.ws.onopen = () => {
-            console.log('Successfully connected to WebSocket server');
+        this.ws.onopen = () => console.log('Connected to WebSocket server');
+        this.ws.onerror = (error) => console.error('WebSocket error:', error);
+        this.ws.onclose = () => {
+            console.log('WebSocket connection closed. Attempting to reconnect...');
+            setTimeout(() => this.connect(), 1000);
         };
 
-        this.ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-        };
-
-        this.ws.onmessage = (event) => {
-            console.log('Raw WebSocket message received:', event.data);
+        this.ws.onmessage = async (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Parsed WebSocket message:', data);
-
                 if (data.type === 'newOrder') {
-                    console.log('Handling new order:', data.order);
-                    this.handleNewOrder(data.order);
+                    await this.handleNewOrder(data.order);
                 } else if (data.type === 'updateOrder') {
-                    console.log('Handling order update:', data.order);
-                    this.handleOrderUpdate(data.order);
+                    await this.handleOrderUpdate(data.order);
                 }
             } catch (error) {
                 console.error('Error processing WebSocket message:', error);
             }
         };
-
-        this.ws.onclose = () => {
-            console.log('WebSocket connection closed. Attempting to reconnect...');
-            setTimeout(() => this.connect(), 1000);
-        };
     }
 
-    setupDebugListeners() {
+    async handleNewOrder(order) {
         const ordersContainer = document.querySelector('.row');
-        if (ordersContainer) {
-            const observer = new MutationObserver((mutations) => {
-                console.log('DOM changes detected:', mutations);
-            });
+        if (!ordersContainer) return;
 
-            observer.observe(ordersContainer, {
-                childList: true,
-                subtree: true
-            });
-        }
-    }
-
-    handleNewOrder(order) {
-        console.log('Starting handleNewOrder for:', order);
-        const ordersContainer = document.querySelector('.row');
-
-        if (!ordersContainer) {
-            console.error('Orders container not found!');
-            return;
-        }
-
-        console.log('Creating new order HTML');
         const orderHtml = this.createOrderHtml(order);
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = orderHtml;
+        const orderElement = tempDiv.firstElementChild;
 
-        console.log('Inserting new order into DOM');
-        ordersContainer.insertAdjacentHTML('afterbegin', orderHtml);
+        orderElement.style.opacity = '0';
+        orderElement.style.transform = 'translateY(20px)';
+        orderElement.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
 
-        console.log('Initializing event listeners for new order');
+        ordersContainer.insertBefore(orderElement, ordersContainer.firstChild);
+
+        setTimeout(() => {
+            orderElement.style.opacity = '1';
+            orderElement.style.transform = 'translateY(0)';
+        }, 50);
+
         this.initializeOrderEventListeners(order._id);
     }
 
-    handleOrderUpdate(order) {
-        console.log('Starting handleOrderUpdate for:', order);
-        const orderElement = document.querySelector(`[data-order-id="${order._id}"]`)
-            ?.closest('.card');
+    async handleOrderUpdate(order) {
+        const orderElement = document.querySelector(`[data-order-id="${order._id}"]`)?.closest('.col-md-6');
+        if (!orderElement) return;
 
-        if (orderElement) {
+        if (order.status === 'served') {
+            if (window.location.pathname === '/orders') {
+                orderElement.style.opacity = '0';
+                orderElement.style.transform = 'translateY(-20px)';
+
+                setTimeout(() => {
+                    orderElement.remove();
+                    this.reorderRemainingOrders();
+                }, 500);
+            }
+        } else {
             const statusButton = orderElement.querySelector('.dropdown-toggle');
             if (statusButton) {
                 statusButton.textContent = order.status;
             }
-
-            const totalAmount = orderElement.querySelector('.total-amount');
-            if (totalAmount) {
-                totalAmount.textContent = `${order.totalAmount.toFixed(2)} zł`;
-            }
-        } else {
-            console.log('Order element not found for update, ID:', order._id);
         }
     }
 
+    reorderRemainingOrders() {
+        const orders = document.querySelectorAll('.col-md-6');
+        orders.forEach((order, index) => {
+            order.style.transition = 'transform 0.5s ease';
+            order.style.transform = 'translateY(0)';
+        });
+    }
+
     createOrderHtml(order) {
+        const orderItems = order.items.map(item => `
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>${item.quantity}x ${this.menuItems.get(item.menuItemId) || 'Unknown Item'}</span>
+                <span>${(item.price * item.quantity).toFixed(2)} zł</span>
+            </li>
+        `).join('');
+
         return `
-            <div class="col-md-6 mb-4">
-                <div class="card" data-order-id="${order._id}">
+            <div class="col-md-6 mb-4" data-order-id="${order._id}">
+                <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Table #${order.tableNumber}</h5>
                         <div class="dropdown">
-                            <button class="btn btn-outline-secondary dropdown-toggle"
-                                    type="button"
-                                    data-bs-toggle="dropdown">
+                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
                                 ${order.status}
                             </button>
                             <ul class="dropdown-menu">
-                                <li><a class="dropdown-item status-change"
-                                       href="#"
-                                       data-order-id="${order._id}"
-                                       data-status="new">New</a></li>
-                                <li><a class="dropdown-item status-change"
-                                       href="#"
-                                       data-order-id="${order._id}"
-                                       data-status="preparing">Preparing</a></li>
-                                <li><a class="dropdown-item status-change"
-                                       href="#"
-                                       data-order-id="${order._id}"
-                                       data-status="ready">Ready</a></li>
-                                <li><a class="dropdown-item status-change"
-                                       href="#"
-                                       data-order-id="${order._id}"
-                                       data-status="served">Served</a></li>
+                                <li><a class="dropdown-item status-change" href="#" data-order-id="${order._id}" data-status="new">New</a></li>
+                                <li><a class="dropdown-item status-change" href="#" data-order-id="${order._id}" data-status="preparing">Preparing</a></li>
+                                <li><a class="dropdown-item status-change" href="#" data-order-id="${order._id}" data-status="ready">Ready</a></li>
+                                <li><a class="dropdown-item status-change" href="#" data-order-id="${order._id}" data-status="served">Served</a></li>
                             </ul>
                         </div>
                     </div>
                     <div class="card-body">
                         <ul class="list-group list-group-flush">
-                            ${order.items.map(item => `
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <span>${item.quantity}x ${item.menuItemId}</span>
-                                    <span>${(item.price * item.quantity).toFixed(2)} zł</span>
-                                </li>
-                            `).join('')}
+                            ${orderItems}
                         </ul>
                         ${order.notes ? `
                             <div class="mt-3">
@@ -164,7 +150,6 @@ class OrdersWebSocket {
     }
 
     initializeOrderEventListeners(orderId) {
-        console.log('Initializing listeners for order:', orderId);
         const orderCard = document.querySelector(`[data-order-id="${orderId}"]`);
         if (orderCard) {
             orderCard.querySelectorAll('.status-change').forEach(link => {
@@ -188,7 +173,6 @@ class OrdersWebSocket {
             });
 
             if (!response.ok) {
-                console.error('Error updating status:', response);
                 alert('An error occurred while updating the status');
             }
         } catch (error) {
@@ -199,6 +183,5 @@ class OrdersWebSocket {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM fully loaded - initializing OrdersWebSocket');
     new OrdersWebSocket();
 });

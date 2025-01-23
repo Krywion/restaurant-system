@@ -15,11 +15,12 @@ app.set('view engine', 'ejs');
 app.set('layout', 'layouts/main');
 
 app.get('/', (req, res) => {
+    console.log('Rendering index page');
     res.render('index', {
         title: 'Restaurant System',
-        body: 'Welcome to the Restaurant System'
-    })
-})
+        body: 'Welcome to the Restaurant System!',
+    });
+});
 
 app.get('/menu', async (req, res) => {
     try {
@@ -53,10 +54,9 @@ app.get('/orders/new', async (req, res) => {
     }
 });
 
-// Get all orders
 app.get('/orders', async (req, res) => {
     try {
-        const response = await axios.get(`${process.env.ORDER_SERVICE_URL}/api/orders`);
+        const response = await axios.get(`${process.env.ORDER_SERVICE_URL}/api/orders?status=new,preparing,ready`);
         res.render('orders', {
             title: 'Active Orders',
             orders: response.data
@@ -68,6 +68,22 @@ app.get('/orders', async (req, res) => {
             message: 'An error occurred while fetching the orders'
         });
     }
+});
+
+app.get('/orders/history', async (req, res) => {
+   try{
+         const response = await axios.get(`${process.env.ORDER_SERVICE_URL}/api/orders?status=served`);
+         res.render('order-history', {
+              title: 'Order History',
+              orders: response.data
+         });
+   } catch (error) {
+       console.error('Error fetching orders:', error);
+       res.render('error', {
+           title: 'Error',
+           message: 'An error occurred while fetching the orders'
+       });
+   }
 });
 
 app.post('/api/orders', async (req, res) => {
