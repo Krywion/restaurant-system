@@ -21,6 +21,9 @@ class OrderService {
     }
 
     async getOrders(filter = {}) {
+        if (filter.status && filter.status.includes(',')) {
+            filter.status = { $in: filter.status.split(',') };
+        }
         return await this.Order.find(filter).sort({ createdAt: -1 });
     }
 
